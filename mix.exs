@@ -4,7 +4,7 @@ defmodule Gremlex.MixProject do
   def project do
     [
       app: :gremlex,
-      version: "0.1.0",
+      version: File.read!("./VERSION") |> String.trim(),
       elixir: "~> 1.6",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
