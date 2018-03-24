@@ -1,6 +1,6 @@
 readonly VERSION_FILE="VERSION"
 readonly TOP_PID=$$
-readonly BRANCH="good-commit-branch"
+readonly BRANCH="master"
 trap "exit 1" TERM
 
 exit_script() {
@@ -13,7 +13,7 @@ run_tests() {
         docker-compose -f docker-compose/docker-compose.yml down
     if [ "$?" -ne 0 ]
     then
-        echo "Error: Failed to run tests"
+        echo "Error: Failure when running tests"
         exit_script
     fi
 }
@@ -22,7 +22,7 @@ lint() {
     commitlint --from master
     if [ "$?" -ne 0 ]
     then
-        echo "Error: Commitlint failed"
+        echo "Error: Failure when linting commits"
         exit_script
     fi
 }
@@ -48,6 +48,8 @@ commit_and_tag() {
     git checkout $BRANCH
     git add $VERSION_FILE
     git add CHANGELOG.md
+    git add package.json
+    git add package-lock.json
     git commit -m "$1"
     git tag "$1"
     if [ "$?" -ne 0 ]

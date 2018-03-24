@@ -3,5 +3,8 @@
     "lib/gremlex.ex",
     "test/support/mock_server.ex",
     "test/support/mocks.ex"
- ]
+  ],
+  "coverage_options": {
+    "minimum_coverage": 90
+  }
 }
