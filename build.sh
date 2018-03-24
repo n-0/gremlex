@@ -1,7 +1,6 @@
 readonly VERSION_FILE="VERSION"
-readonly REL_FILE_PREFIX="carla_cms"
 readonly TOP_PID=$$
-readonly BRANCH="master"
+readonly BRANCH="good-commit-branch"
 trap "exit 1" TERM
 
 exit_script() {
