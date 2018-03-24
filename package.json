@@ -1,6 +1,6 @@
 {
   "name": "gremlex",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Gremlin driver for Elixir",
   "main": "commitlint.config.js",
   "directories": {
