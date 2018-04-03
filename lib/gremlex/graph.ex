@@ -1,4 +1,5 @@
 defmodule Gremlex.Graph do
+
   @moduledoc """
   Functions for traversing and mutating the Graph.
 
@@ -18,6 +19,7 @@ defmodule Gremlex.Graph do
   Note: This module doesn't actually execute any queries, it just allows you to build one.
   For query execution see `Gremlex.Client.query/1`
   """
+  require Logger
   alias :queue, as: Queue
 
   @type t :: {[], []}
@@ -27,6 +29,10 @@ defmodule Gremlex.Graph do
   """
   @spec g :: Gremlex.Graph.t()
   def g, do: Queue.new()
+
+  def __ do
+    enqueue(Queue.new(), "__", nil)
+  end
 
   @doc """
   Appends an addV command to the traversal.
@@ -112,6 +118,14 @@ defmodule Gremlex.Graph do
     enqueue(graph, "outE", [])
   end
 
+  def repeat(graph, args) do
+    enqueue(graph, "repeat", args)
+  end
+
+  def out(edge) do
+    {"out", [edge]}
+  end
+
   @spec out(Gremlex.Graph.t(), String.t()) :: Gremlex.Graph.t()
   def out(graph, edge) do
     enqueue(graph, "out", [edge])
@@ -157,9 +171,37 @@ defmodule Gremlex.Graph do
     enqueue(graph, "next", [])
   end
 
+  def emit(graph) do
+    enqueue(graph, "emit", [])
+  end
+
+  def emit(graph, args) do
+    enqueue(graph, "emit", [args])
+  end
+
+  def as(graph, label) do
+    enqueue(graph, "as", [label])
+  end
+
+  def in_node(graph, label) do
+    enqueue(graph, "in", [label])
+  end
+
+  def has_id(id) do
+    {"hasId", [id]}
+  end
+
   @spec next(Gremlex.Graph.t(), number()) :: Gremlex.Graph.t()
-  def next(graph, numberOfResults) do
-    enqueue(graph, "next", [numberOfResults])
+  def next(graph, num_results) do
+    enqueue(graph, "next", [num_results])
+  end
+
+  def select(graph, label) do
+    enqueue(graph, "select", [label])
+  end
+
+  def limit(graph, num_results) do
+    enqueue(graph, "limit", [num_results])
   end
 
   @spec try_next(Gremlex.Graph.t()) :: Gremlex.Graph.t()
@@ -209,20 +251,62 @@ defmodule Gremlex.Graph do
   defp encode(graph, acc) do
     {{:value, {op, args}}, remainder} = :queue.out(graph)
 
+    # IO.inspect op, label: "op"
+    # IO.inspect args, label: "args"
+    # IO.inspect acc, label: "acc"
+
+    args =
+      case args do
+        {inner_args_tail, inner_args_head} = inner_graph when is_list(inner_args_tail) and is_list(inner_args_head) ->
+          encode(inner_graph, "")
+
+        {inner_op, inner_args} ->
+          args =
+            inner_args
+            |> Enum.map(&convert_arg/1)
+            |> Enum.join(", ")
+
+          "#{inner_op}(#{args})"
+
+        args when is_list(args) ->
+          args
+          |> Enum.map(&convert_arg/1)
+          |> Enum.join(", ")
+
+        nil ->
+          nil
+      end
+
+    encoded_op =
+      case args do
+        nil ->
+          op
+        args ->
+          ".#{op}(#{args})"
+      end
+
+    encode(remainder, acc <> encoded_op)
+  end
+
+  def convert_arg(%Gremlex.Vertex{id: id}) do
+    "V(#{id})"
+  end
+
+  def convert_arg(arg) when is_number(arg) do
+    "#{arg}"
+  end
+
+  def convert_arg({op, args}) do
     args =
       args
-      |> Enum.map(fn
-        %Gremlex.Vertex{id: id} ->
-          "V(#{id})"
-
-        arg when is_number(arg) ->
-          "#{arg}"
-
-        s ->
-          "'#{s}'"
-      end)
+      |> Enum.map(&convert_arg/1)
       |> Enum.join(", ")
 
-    encode(remainder, acc <> ".#{op}(#{args})")
+    "#{op}(#{args})"
+  end
+
+  def convert_arg(arg) do
+    # IO.inspect arg, label: "convert_arg/1::arg:"
+    "'#{arg}'"
   end
 end
