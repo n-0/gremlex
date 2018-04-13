@@ -16,10 +16,11 @@ defmodule Gremlex.Vertex do
     Map.put(vertex, :properties, properties)
   end
 
-  def from_response(%{"id" => json_id, "label" => label, "properties" => properties}) do
+  def from_response(%{"id" => json_id, "label" => label} = result) do
     %{"@type" => id_type, "@value" => id_value} = json_id
 
     id = Deserializer.deserialize(id_type, id_value)
+    properties = Map.get(result, "properties", %{})
 
     vertex = %Vertex{id: id, label: label}
 

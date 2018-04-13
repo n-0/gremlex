@@ -131,6 +131,26 @@ defmodule Gremlex.Graph do
     enqueue(graph, "out", [edge])
   end
 
+  @spec out(Gremlex.Graph.t(), String.t()) :: Gremlex.Graph.t()
+  def out(graph) do
+    enqueue(graph, "out", [])
+  end
+
+  @spec in_(Gremlex.Graph.t(), String.t()) :: Gremlex.Graph.t()
+  def in_(graph, edge) do
+    enqueue(graph, "in", [edge])
+  end
+
+  @spec in_(Gremlex.Graph.t(), String.t()) :: Gremlex.Graph.t()
+  def in_(graph) do
+    enqueue(graph, "in", [])
+  end
+
+  @spec or_(Gremlex.Graph.t()) :: Gremlex.Graph.t()
+  def or_(graph) do
+    enqueue(graph, "or", [])
+  end
+
   @spec and_(Gremlex.Graph.t()) :: Gremlex.Graph.t()
   def and_(graph) do
     enqueue(graph, "and", [])
@@ -236,6 +256,20 @@ defmodule Gremlex.Graph do
 
   defp enqueue(graph, op, args) do
     Queue.in({op, args}, graph)
+  end
+
+  @doc """
+  Appends values the `E` command allowing you to select an edge.
+  Returns a graph to allow chaining.
+  """
+  @spec e(Gremlex.Graph.t()) :: Gremlex.Graph.t()
+  def e(graph) do
+    enqueue(graph, "E", [])
+  end
+
+  @spec e(Gremlex.Graph.t(), number) :: Gremlex.Graph.t()
+  def e(graph, id) when is_number(id) do
+    enqueue(graph, "E", [id])
   end
 
   @doc """
