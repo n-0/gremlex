@@ -23,17 +23,19 @@ defmodule Gremlex.Client do
   def start_link({host, port, path, secure}) do
     case Socket.Web.connect(host, port, path: path, secure: secure) do
       {:ok, socket} ->
-        GenServer.start_link(__MODULE__, socket, [])
+        state = %{socket: socket, host: host, port: port, path: path, secure: secure}
+        GenServer.start_link(__MODULE__, state, [])
 
       error ->
         Logger.error("Error establishing connection to server: #{inspect(error)}")
-        GenServer.start_link(__MODULE__, %{}, [])
+        state = %{socket: %{}, host: host, port: port, path: path, secure: secure}
+        GenServer.start_link(__MODULE__, state, [])
     end
   end
 
   @spec init(Socket.Web.t()) :: state
-  def init(socket) do
-    state = %{socket: socket}
+  def init(state) do
+    GenServer.cast(self(), :monitor)
     {:ok, state}
   end
 
@@ -70,10 +72,33 @@ defmodule Gremlex.Client do
     {:reply, result, state}
   end
 
+  def handle_cast(:monitor, %{socket: socket, host: host, path: path, port: port, secure: secure} = state) do
+    # Logger.debug("Starting monitor")
+    case Socket.Web.recv!(socket) do
+      {:ping, _} ->
+        Socket.Web.send!(socket, {:pong, ""})
+        GenServer.cast(self(), :monitor)
+        {:noreply, state}
+      {:close, _, _} ->
+        Logger.debug("Got close")
+        case Socket.Web.connect(host, port, path: path, secure: secure) do
+          {:ok, socket} ->
+            GenServer.cast(self(), :monitor)
+            {:noreply, %{state | socket: socket}}
+          {:error, _} ->
+            GenServer.cast(self(), :monitor)
+            {:noreply, state}
+        end
+    end
+  end
+
   # Private Methods
   @spec recv(Socket.Web.t(), list()) :: response
   defp recv(socket, acc \\ []) do
     case Socket.Web.recv!(socket) do
+      {:close, _, _} ->
+        Logger.debug("Got close in recv")
+        {:ok, []}
       {:text, data} ->
         response = Poison.decode!(data)
         result = Deserializer.deserialize(response)
