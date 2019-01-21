@@ -18,6 +18,7 @@ defmodule Gremlex.Client do
   require Logger
   alias Gremlex.Request
   alias Gremlex.Deserializer
+  use Retry
 
   @spec start_link({String.t(), number(), String.t(), boolean()}) :: pid()
   def start_link({host, port, path, secure}) do
@@ -73,22 +74,24 @@ defmodule Gremlex.Client do
   end
 
   def handle_cast(:monitor, %{socket: socket, host: host, path: path, port: port, secure: secure} = state) do
-    # Logger.debug("Starting monitor")
     case Socket.Web.recv!(socket) do
       {:ping, _} ->
         Socket.Web.send!(socket, {:pong, ""})
         GenServer.cast(self(), :monitor)
         {:noreply, state}
       {:close, _, _} ->
-        Logger.debug("Got close")
-        case Socket.Web.connect(host, port, path: path, secure: secure) do
-          {:ok, socket} ->
-            GenServer.cast(self(), :monitor)
-            {:noreply, %{state | socket: socket}}
-          {:error, _} ->
-            GenServer.cast(self(), :monitor)
-            {:noreply, state}
-        end
+        backoff = exponential_backoff() |> randomize
+        socket =
+          retry with: backoff do
+            Socket.Web.connect(host, port, path: path, secure: secure)
+          after
+            {:ok, socket} -> socket
+          else
+            _ -> %{}
+          end
+        state = %{state | socket: socket}
+        GenServer.cast(self(), :monitor)
+        {:noreply, state}
     end
   end
 
@@ -97,7 +100,6 @@ defmodule Gremlex.Client do
   defp recv(socket, acc \\ []) do
     case Socket.Web.recv!(socket) do
       {:close, _, _} ->
-        Logger.debug("Got close in recv")
         {:ok, []}
       {:text, data} ->
         response = Poison.decode!(data)

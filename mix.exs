@@ -46,7 +46,7 @@ defmodule Gremlex.MixProject do
       {:poison, "~> 3.1"},
       {:httpoison, "~> 1.3.1"},
       {:confex, "~> 3.2.3"},
-      {:websockex, "~> 0.4.0"},
+      {:retry, "~> 0.11"},
       {:uuid, "~> 1.1"},
       {:poolboy, "~> 1.5.1"},
       {:socket, "~> 0.3"},
