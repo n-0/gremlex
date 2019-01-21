@@ -80,7 +80,7 @@ defmodule Gremlex.Client do
         GenServer.cast(self(), :monitor)
         {:noreply, state}
       {:close, _, _} ->
-        backoff = exponential_backoff() |> randomize
+        backoff = exponential_backoff() |> cap(10_000)
         socket =
           retry with: backoff do
             Socket.Web.connect(host, port, path: path, secure: secure)
