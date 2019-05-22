@@ -14,6 +14,7 @@ defmodule Gremlex.Client do
           | {:error, :script_evaluation_error, String.t()}
           | {:error, :server_timeout, String.t()}
           | {:error, :server_serialization_error, String.t()}
+          | {:error, :websocket_closed, nil}
 
   require Logger
   alias Gremlex.Request
@@ -117,6 +118,9 @@ defmodule Gremlex.Client do
   @spec recv(Socket.Web.t(), list()) :: response
   defp recv(socket, acc \\ []) do
     case Socket.Web.recv!(socket) do
+      {:close, :abnormal, nil} ->
+        {:error, :websocket_closed, nil}
+
       {:text, data} ->
         response = Poison.decode!(data)
         result = Deserializer.deserialize(response)
