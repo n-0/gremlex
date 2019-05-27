@@ -112,7 +112,7 @@ defmodule Gremlex.ClientTests do
       {status, reason, msg} = Gremlex.Client.query(query)
       assert(status == :error)
       assert(reason == :websocket_closed)
-      assert(msg == nil)
+      assert(msg == :abnormal)
     end
   end
 end

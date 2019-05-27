@@ -14,7 +14,7 @@ defmodule Gremlex.Client do
           | {:error, :script_evaluation_error, String.t()}
           | {:error, :server_timeout, String.t()}
           | {:error, :server_serialization_error, String.t()}
-          | {:error, :websocket_closed, nil}
+          | {:error, :websocket_closed, reason :: atom()}
 
   require Logger
   alias Gremlex.Request
@@ -93,9 +93,14 @@ defmodule Gremlex.Client do
     Socket.Web.send!(socket, {:text, payload})
 
     task = Task.async(fn -> recv(socket) end)
-    result = Task.await(task, timeout)
 
-    {:reply, result, state}
+    case Task.await(task, timeout) do
+      {:error, :websocket_closed, _reason} = result ->
+        {:stop, :normal, result, state}
+
+      result ->
+        {:reply, result, state}
+    end
   end
 
   def handle_info(:ping, %{socket: socket} = state) do
@@ -118,8 +123,11 @@ defmodule Gremlex.Client do
   @spec recv(Socket.Web.t(), list()) :: response
   defp recv(socket, acc \\ []) do
     case Socket.Web.recv!(socket) do
-      {:close, :abnormal, nil} ->
-        {:error, :websocket_closed, nil}
+      :close ->
+        {:error, :websocket_closed, :close}
+
+      {:close, reason, _} ->
+        {:error, :websocket_closed, reason}
 
       {:text, data} ->
         response = Poison.decode!(data)
