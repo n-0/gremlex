@@ -253,7 +253,7 @@ defmodule Gremlex.GraphTests do
     end
 
     test "creates a vertex when the id is a number" do
-      check all n <- integer() do
+      check all(n <- integer()) do
         actual_graph = v(n)
         expected_graph = %Vertex{id: n, label: ""}
         assert actual_graph == expected_graph

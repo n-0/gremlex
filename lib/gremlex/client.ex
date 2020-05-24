@@ -113,6 +113,70 @@ defmodule Gremlex.Client do
     end
   end
 
+  @doc """
+  Retrieves the login credentials of a 
+  user for database from environment.
+  """
+  @spec get_creds() :: {:ok, String.t(), String.t()} | :error
+  defp get_creds() do
+    username =
+      case Gremlex.Application.get_env(:username) do
+        :not_set -> :error
+        x -> x
+      end
+
+    password =
+      case Gremlex.Application.get_env(:username) do
+        :not_set -> :error
+        x -> x
+      end
+
+    cond do
+      username == :error ->
+        :error
+
+      password == :error ->
+        :error
+
+      true ->
+        {:ok, username, password}
+    end
+  end
+
+  @doc """
+  authenticate allows sasl based authentication
+  with credentials from config on 401 response.
+  """
+  @spec authenticate(Socket.Web.t(), String.t()) :: response
+  defp authenticate(socket, request_id) do
+    content_type = '!application/vnd.gremlin-v2.0+json'
+    creds = get_creds()
+
+    case creds do
+      :error ->
+        {:error, :unauthorized, "Missing user credentials"}
+
+      {username, password} ->
+        sasl = ("\0" <> username <> "\0" <> password) |> Base.encode64()
+        # this struct should be introduced to
+        # Gremlex.Request (explicit requestId and variable ops)
+        req =
+          %{
+            "requestId" => %{"@type" => "g:UUID", "@value" => request_id},
+            "op" => "authentication",
+            "processor" => "traversal",
+            "args" => %{
+              "sasl" => sasl
+            }
+          }
+          |> Poison.encode!()
+
+        req = content_type <> req
+        Socket.Web.send!(socket, {:text, req})
+        recv(socket)
+    end
+  end
+
   # Private Methods
   @spec recv(Socket.Web.t(), list()) :: response
   defp recv(socket, acc \\ []) do
