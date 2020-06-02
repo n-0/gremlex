@@ -3,6 +3,8 @@ defmodule Gremlex.Client do
   Gremlin Websocket Client
   """
 
+  use DBConnection
+
   @type state :: %{socket: Socket.Web.t()}
 
   @type response ::
@@ -18,6 +20,10 @@ defmodule Gremlex.Client do
   require Logger
   alias Gremlex.Request
   alias Gremlex.Deserializer
+
+  defmodule ConnOpts do
+    defstruct host: "", port: 443, path: "/gremlin", secure: false
+  end
 
   defp parse_delay(value) when is_binary(value) do
     case Integer.parse(value) do
@@ -54,6 +60,39 @@ defmodule Gremlex.Client do
       error ->
         Logger.error("Error establishing connection to server: #{inspect(error)}")
         GenServer.start_link(__MODULE__, %{}, [])
+    end
+  end
+
+  @impl true
+  @doc """
+  Builds a connection to a gremlin graph db
+  and adds it to the state.
+  """
+  @spec connect(%ConnOpts{}) :: {:ok, any()} :: {:error, any()}
+  def connect(opts) do
+    host = Keyword.fetch!(opts, :hostanme)
+    port = String.to_integer(Keyword.fetch!(opts, :port))
+
+    transport =
+      case Keyword.fetch(opts, :secure) do
+        "true" -> :tls
+        _ -> tcp
+      end
+
+    path = Keyword.fetch!(opts, :path)
+    {:ok, conn} = :gun.open(host, port, %{transport: transport})
+
+    case :gun.await_up(conn) do
+      {:ok, _} ->
+        :gun.ws_upgrade(conn, path)
+
+        receive do
+          {:gun_upgrade, _, ["websocket"]} -> {:ok, conn}
+          {:gun_error, _, reason} -> {:error, reason}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
