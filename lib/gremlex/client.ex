@@ -3,8 +3,6 @@ defmodule Gremlex.Client do
   Gremlin Websocket Client
   """
 
-  use DBConnection
-
   @type state :: %{socket: Socket.Web.t()}
 
   @type response ::
@@ -63,39 +61,6 @@ defmodule Gremlex.Client do
     end
   end
 
-  @impl true
-  @doc """
-  Builds a connection to a gremlin graph db
-  and adds it to the state.
-  """
-  @spec connect(%ConnOpts{}) :: {:ok, any()} :: {:error, any()}
-  def connect(opts) do
-    host = Keyword.fetch!(opts, :hostanme)
-    port = String.to_integer(Keyword.fetch!(opts, :port))
-
-    transport =
-      case Keyword.fetch(opts, :secure) do
-        "true" -> :tls
-        _ -> tcp
-      end
-
-    path = Keyword.fetch!(opts, :path)
-    {:ok, conn} = :gun.open(host, port, %{transport: transport})
-
-    case :gun.await_up(conn) do
-      {:ok, _} ->
-        :gun.ws_upgrade(conn, path)
-
-        receive do
-          {:gun_upgrade, _, ["websocket"]} -> {:ok, conn}
-          {:gun_error, _, reason} -> {:error, reason}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
   @spec init(Socket.Web.t()) :: state
   def init(socket) do
     state = %{socket: socket}
@@ -149,70 +114,6 @@ defmodule Gremlex.Client do
 
     if delay > 0 do
       Process.send_after(self(), :ping, delay)
-    end
-  end
-
-  @doc """
-  Retrieves the login credentials of a 
-  user for database from environment.
-  """
-  @spec get_creds() :: {:ok, String.t(), String.t()} | :error
-  defp get_creds() do
-    username =
-      case Gremlex.Application.get_env(:username) do
-        :not_set -> :error
-        x -> x
-      end
-
-    password =
-      case Gremlex.Application.get_env(:username) do
-        :not_set -> :error
-        x -> x
-      end
-
-    cond do
-      username == :error ->
-        :error
-
-      password == :error ->
-        :error
-
-      true ->
-        {:ok, username, password}
-    end
-  end
-
-  @doc """
-  authenticate allows sasl based authentication
-  with credentials from config on 401 response.
-  """
-  @spec authenticate(Socket.Web.t(), String.t()) :: response
-  defp authenticate(socket, request_id) do
-    content_type = '!application/vnd.gremlin-v2.0+json'
-    creds = get_creds()
-
-    case creds do
-      :error ->
-        {:error, :unauthorized, "Missing user credentials"}
-
-      {username, password} ->
-        sasl = ("\0" <> username <> "\0" <> password) |> Base.encode64()
-        # this struct should be introduced to
-        # Gremlex.Request (explicit requestId and variable ops)
-        req =
-          %{
-            "requestId" => %{"@type" => "g:UUID", "@value" => request_id},
-            "op" => "authentication",
-            "processor" => "traversal",
-            "args" => %{
-              "sasl" => sasl
-            }
-          }
-          |> Poison.encode!()
-
-        req = content_type <> req
-        Socket.Web.send!(socket, {:text, req})
-        recv(socket)
     end
   end
 
